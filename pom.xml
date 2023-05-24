@@ -597,6 +597,7 @@
         <module>plugin</module>
         <module>plugin-default-impl</module>
         <module>prometheus</module>
+        <module>plugin-rome-impl</module>
     </modules>
     
     <!-- Default dependencies in all subprojects -->

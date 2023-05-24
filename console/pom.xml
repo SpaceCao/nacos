@@ -42,9 +42,14 @@
             <artifactId>nacos-naming</artifactId>
         </dependency>
     
+<!--        <dependency>-->
+<!--            <groupId>com.alibaba.nacos</groupId>-->
+<!--            <artifactId>nacos-plugin-default-impl</artifactId>-->
+<!--            <version>${project.version}</version>-->
+<!--        </dependency>-->
         <dependency>
-            <groupId>com.alibaba.nacos</groupId>
-            <artifactId>nacos-plugin-default-impl</artifactId>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>nacos-plugin-rome-impl</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
