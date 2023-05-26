@@ -31,6 +31,8 @@ public class AuthConstants {
     public static final String LDAP_AUTH_PLUGIN_TYPE = "ldap";
     
     public static final String GLOBAL_ADMIN_ROLE = "ROLE_ADMIN";
+
+    public static final String REMOTE_READONLY_ROLE = "ROLE_REMOTE_READONLY";
     
     public static final String AUTHORIZATION_HEADER = "Authorization";
     

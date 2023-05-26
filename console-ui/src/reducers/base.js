@@ -27,7 +27,7 @@ const initialState = {
  * 用户登录
  * @param {*} param0
  */
-const login = user => request.post('v1/auth/users/login', user);
+const login = user => request.post('v1/auth/users/login', user, { headers: { isBackend: true } });
 
 const getState = () => dispatch =>
   request

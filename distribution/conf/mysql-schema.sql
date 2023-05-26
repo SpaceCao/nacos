@@ -216,6 +216,19 @@ CREATE TABLE `permissions` (
     UNIQUE INDEX `uk_role_permission` (`role`,`resource`,`action`) USING BTREE
 );
 
+CREATE TABLE `rome_role_server_permissions` (
+    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `role` varchar(50) NOT NULL COMMENT '角色',
+    `data_id` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_bin NOT NULL COMMENT 'data_id',
+    `action` varchar(8) NOT NULL COMMENT '操作类型: w 写 r 读',
+    `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb3 COMMENT='来伊份角色服务权限关联表';
+
 INSERT INTO users (username, password, enabled) VALUES ('nacos', '$2a$10$EuWPZHzz32dJN7jexM34MOeYirDdFAZm2kuWj7VEOJhhZkDrxfvUu', TRUE);
 
 INSERT INTO roles (username, role) VALUES ('nacos', 'ROLE_ADMIN');
+
+INSERT INTO roles (username, role) VALUES ('lyf_remote', 'ROLE_REMOTE_READONLY');
+

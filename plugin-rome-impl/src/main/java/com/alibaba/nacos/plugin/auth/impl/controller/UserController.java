@@ -22,6 +22,7 @@ import com.alibaba.nacos.auth.config.AuthConfigs;
 import com.alibaba.nacos.common.model.RestResult;
 import com.alibaba.nacos.common.model.RestResultUtils;
 import com.alibaba.nacos.common.utils.JacksonUtils;
+import com.alibaba.nacos.common.utils.StringUtils;
 import com.alibaba.nacos.config.server.model.Page;
 import com.alibaba.nacos.plugin.auth.constant.ActionTypes;
 import com.alibaba.nacos.plugin.auth.exception.AccessException;
@@ -51,6 +52,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * User related methods entry.
@@ -61,6 +63,8 @@ import java.util.List;
 @RestController("user")
 @RequestMapping({"/v1/auth", "/v1/auth/users"})
 public class UserController {
+
+    public static final String LOGIN_IS_BACKEND_HEADER = "isBackend";
     
     @Autowired
     private JwtTokenManager jwtTokenManager;
@@ -79,6 +83,9 @@ public class UserController {
     
     @Autowired
     private NacosAuthManager authManager;
+
+    @Autowired
+    private NacosRoleServiceImpl nacosRoleService;
     
     /**
      * Create a new user.
@@ -216,8 +223,15 @@ public class UserController {
         if (AuthSystemTypes.NACOS.name().equalsIgnoreCase(authConfigs.getNacosAuthSystemType()) || AuthSystemTypes.LDAP
                 .name().equalsIgnoreCase(authConfigs.getNacosAuthSystemType()) || AuthSystemTypes.ROME_NACOS
                 .name().equalsIgnoreCase(authConfigs.getNacosAuthSystemType())) {
+            boolean isBackend = !StringUtils.isEmpty(request.getHeader(LOGIN_IS_BACKEND_HEADER)) && Boolean.parseBoolean(request.getHeader(LOGIN_IS_BACKEND_HEADER));
+            List<String> roles = nacosRoleService.getRoles(username).stream().map(RoleInfo::getRole).collect(Collectors.toList());
+            if(roles.size() == 1 && roles.contains(AuthConstants.REMOTE_READONLY_ROLE) && isBackend) {
+                throw new AccessException("remote user can not login in backend!");
+            }
+
             NacosUser user = (NacosUser) authManager.login(request);
-            
+
+
             response.addHeader(AuthConstants.AUTHORIZATION_HEADER, AuthConstants.TOKEN_PREFIX + user.getToken());
             
             ObjectNode result = JacksonUtils.createEmptyJsonNode();
