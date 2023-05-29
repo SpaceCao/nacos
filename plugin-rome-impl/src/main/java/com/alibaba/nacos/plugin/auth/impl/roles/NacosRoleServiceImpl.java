@@ -23,6 +23,7 @@ import com.alibaba.nacos.config.server.model.Page;
 import com.alibaba.nacos.core.utils.Loggers;
 import com.alibaba.nacos.plugin.auth.api.Permission;
 import com.alibaba.nacos.plugin.auth.api.Resource;
+import com.alibaba.nacos.plugin.auth.constant.ActionTypes;
 import com.alibaba.nacos.plugin.auth.constant.Constants;
 import com.alibaba.nacos.plugin.auth.constant.SignType;
 import com.alibaba.nacos.plugin.auth.impl.constant.AuthConstants;
@@ -127,6 +128,9 @@ public class NacosRoleServiceImpl {
         // Global admin pass:
         for (RoleInfo roleInfo : roleInfoList) {
             if (AuthConstants.GLOBAL_ADMIN_ROLE.equals(roleInfo.getRole())) {
+                return true;
+            }
+            if (AuthConstants.REMOTE_READONLY_ROLE.equals(roleInfo.getRole()) && ActionTypes.READ.toString().equals(permission.getAction())) {
                 return true;
             }
         }

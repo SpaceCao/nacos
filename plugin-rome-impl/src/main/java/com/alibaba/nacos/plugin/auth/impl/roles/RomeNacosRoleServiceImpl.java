@@ -103,16 +103,6 @@ public class RomeNacosRoleServiceImpl {
             return false;
         }
 
-        // Global admin pass:
-        for (RoleInfo roleInfo : roleInfoList) {
-            if (AuthConstants.GLOBAL_ADMIN_ROLE.equals(roleInfo.getRole())) {
-                return true;
-            }
-            if (AuthConstants.REMOTE_READONLY_ROLE.equals(roleInfo.getRole()) && ActionTypes.READ.toString().equals(permission.getAction())) {
-                return true;
-            }
-        }
-
         Resource resource = permission.getResource();
         if (!SignType.CONFIG.equals(resource.getType()))
             return true;

@@ -34,6 +34,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 
 /**
   * 来伊份权限插件service implementation.
@@ -86,8 +87,10 @@ public class RomeNacosAuthPluginService implements AuthPluginService {
         identityContext.setParameter(com.alibaba.nacos.plugin.auth.constant.Constants.Identity.IDENTITY_ID,
                 user.getUserName());
         ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-        HttpServletRequest request = attributes.getRequest();
-        request.setAttribute(com.alibaba.nacos.plugin.auth.constant.Constants.Identity.IDENTITY_ID,user.getUserName());
+        if(Objects.nonNull(attributes) && Objects.nonNull(attributes.getRequest())) {
+            HttpServletRequest request = attributes.getRequest();
+            request.setAttribute(com.alibaba.nacos.plugin.auth.constant.Constants.Identity.IDENTITY_ID,user.getUserName());
+        }
         return true;
     }
     
