@@ -33,7 +33,9 @@ public class AuthConstants {
     public static final String GLOBAL_ADMIN_ROLE = "ROLE_ADMIN";
 
     public static final String REMOTE_READONLY_ROLE = "ROLE_REMOTE_READONLY";
-    
+
+    public static final String GLOBAL_READONLY_ROLE = "ROLE_ADMIN_READONLY";
+
     public static final String AUTHORIZATION_HEADER = "Authorization";
     
     public static final String TOKEN_PREFIX = "Bearer ";

@@ -133,6 +133,9 @@ public class NacosRoleServiceImpl {
             if (AuthConstants.REMOTE_READONLY_ROLE.equals(roleInfo.getRole()) && ActionTypes.READ.toString().equals(permission.getAction())) {
                 return true;
             }
+            if (AuthConstants.GLOBAL_READONLY_ROLE.equals(roleInfo.getRole()) && ActionTypes.READ.toString().equals(permission.getAction())) {
+                return true;
+            }
         }
         
         // Old global admin can pass resource 'console/':
