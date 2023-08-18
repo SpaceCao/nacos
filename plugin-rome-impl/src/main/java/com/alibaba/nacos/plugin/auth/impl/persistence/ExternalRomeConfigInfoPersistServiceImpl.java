@@ -198,7 +198,7 @@ public class ExternalRomeConfigInfoPersistServiceImpl implements RomeConfigInfoP
             tags.addAll(Arrays.asList(tagArr));
         }
 
-        if(roles.contains(AuthConstants.GLOBAL_ADMIN_ROLE)) {
+        if(roles.contains(AuthConstants.GLOBAL_ADMIN_ROLE) || roles.contains(AuthConstants.GLOBAL_READONLY_ROLE)) {
             globalAdminRole = true;
         }
 

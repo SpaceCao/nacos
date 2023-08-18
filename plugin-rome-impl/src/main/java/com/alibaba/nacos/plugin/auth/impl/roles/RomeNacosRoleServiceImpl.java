@@ -103,6 +103,18 @@ public class RomeNacosRoleServiceImpl {
             return false;
         }
 
+        for (RoleInfo roleInfo : roleInfoList) {
+            if (AuthConstants.GLOBAL_ADMIN_ROLE.equals(roleInfo.getRole())) {
+                return true;
+            }
+            if (AuthConstants.REMOTE_READONLY_ROLE.equals(roleInfo.getRole()) && ActionTypes.READ.toString().equals(permission.getAction())) {
+                return true;
+            }
+            if (AuthConstants.GLOBAL_READONLY_ROLE.equals(roleInfo.getRole()) && ActionTypes.READ.toString().equals(permission.getAction())) {
+                return true;
+            }
+        }
+
         Resource resource = permission.getResource();
         if (!SignType.CONFIG.equals(resource.getType()))
             return true;
@@ -138,6 +150,9 @@ public class RomeNacosRoleServiceImpl {
         // Global admin pass:
         for (RoleInfo roleInfo : roleInfoList) {
             if (AuthConstants.GLOBAL_ADMIN_ROLE.equals(roleInfo.getRole())) {
+                return true;
+            }
+            if (AuthConstants.GLOBAL_READONLY_ROLE.equals(roleInfo.getRole()) && permissions.stream().allMatch(b-> ActionTypes.READ.toString().equals(b.getAction()))) {
                 return true;
             }
         }
