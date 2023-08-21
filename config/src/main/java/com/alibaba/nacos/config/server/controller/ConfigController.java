@@ -289,7 +289,7 @@ public class ConfigController {
      */
     @DeleteMapping(params = "delType=ids")
     @Secured(action = ActionTypes.WRITE, signType = SignType.CONFIG)
-    public RestResult<Boolean> deleteConfigs(HttpServletRequest request, @RequestParam(value = "ids") List<Long> ids) {
+    public RestResult<Boolean> deleteConfigs(HttpServletRequest request, @RequestParam(value = "ids") List<Long> ids)  throws NacosException {
         String clientIp = RequestUtil.getRemoteIp(request);
         final Timestamp time = TimeUtils.getCurrentTime();
         List<ConfigInfo> configInfoList = configInfoPersistService.removeConfigInfoByIds(ids, clientIp, null);

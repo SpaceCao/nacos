@@ -8,6 +8,7 @@ import com.alibaba.nacos.common.utils.DateFormatUtils;
 import com.alibaba.nacos.common.utils.NamespaceUtil;
 import com.alibaba.nacos.common.utils.Pair;
 import com.alibaba.nacos.config.server.controller.ConfigController;
+import com.alibaba.nacos.config.server.controller.parameters.SameNamespaceCloneConfigBean;
 import com.alibaba.nacos.config.server.model.ConfigAllInfo;
 import com.alibaba.nacos.config.server.model.ConfigInfo;
 import com.alibaba.nacos.config.server.model.ConfigMetadata;
@@ -24,6 +25,7 @@ import com.alibaba.nacos.plugin.auth.api.Permission;
 import com.alibaba.nacos.plugin.auth.api.Resource;
 import com.alibaba.nacos.plugin.auth.constant.ActionTypes;
 import com.alibaba.nacos.plugin.auth.constant.Constants;
+import com.alibaba.nacos.plugin.auth.exception.AccessException;
 import com.alibaba.nacos.plugin.auth.impl.constant.AuthConstants;
 import com.alibaba.nacos.plugin.auth.impl.persistence.RoleInfo;
 import com.alibaba.nacos.plugin.auth.impl.persistence.RomeConfigInfoPersistService;
@@ -47,6 +49,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.*;
@@ -123,6 +126,18 @@ public class RomeRequestAspect {
     private static final String CLIENT_INTERFACE_IMPORT_CONFIG =
             "execution(* com.alibaba.nacos.config.server.controller.ConfigController.importAndPublishConfig(..)) && args(request," +
                     "srcUser,namespace,policy,file,..)";
+
+    private static final String CLIENT_INTERFACE_DELETE_CONFIG =
+            "execution(* com.alibaba.nacos.config.server.controller.ConfigController.deleteConfig(..)) && args(request,response," +
+                    "dataId,group,tenant,tag,..)";
+
+    private static final String CLIENT_INTERFACE_DELETE_CONFIGS =
+            "execution(* com.alibaba.nacos.config.server.controller.ConfigController.deleteConfigs(..)) && args(request," +
+                    "ids,..)";
+
+    private static final String CLIENT_INTERFACE_CLONE_CONFIGS =
+            "execution(* com.alibaba.nacos.config.server.controller.ConfigController.cloneConfig(..)) && args(request," +
+                    "srcUser,namespace,configBeansList,policy,..)";
 
 
 
@@ -351,6 +366,45 @@ public class RomeRequestAspect {
             saveResult.put("unrecognizedData", unrecognizedList);
         }
         return RestResultUtils.success("导入成功", saveResult);
+    }
+
+
+    @Around(CLIENT_INTERFACE_DELETE_CONFIG)
+    public Object interfaceDeleteConfig(ProceedingJoinPoint pjp, HttpServletRequest request, HttpServletResponse response, String dataId, String group, String tenant, String tag) throws Throwable {
+        if(!AuthConstants.ROME_AUTH_PLUGIN_TYPE.equals(authConfigs.getNacosAuthSystemType())) {
+            return pjp.proceed();
+        }
+        List<String> roles = getUsernameAndRolesFromAttributes();
+        if(!roles.contains(AuthConstants.GLOBAL_ADMIN_ROLE)) {
+            throw new AccessException("当前用户没有此操作权限!");
+        }
+        return pjp.proceed();
+    }
+
+    @Around(CLIENT_INTERFACE_DELETE_CONFIGS)
+    public Object interfaceDeleteConfigs(ProceedingJoinPoint pjp, HttpServletRequest request, List<Long> ids) throws Throwable {
+        if(!AuthConstants.ROME_AUTH_PLUGIN_TYPE.equals(authConfigs.getNacosAuthSystemType())) {
+            return pjp.proceed();
+        }
+        List<String> roles = getUsernameAndRolesFromAttributes();
+
+        if(!roles.contains(AuthConstants.GLOBAL_ADMIN_ROLE)) {
+            throw new AccessException("当前用户没有此操作权限!");
+        }
+        return pjp.proceed();
+    }
+
+    @Around(CLIENT_INTERFACE_CLONE_CONFIGS)
+    public Object interfaceCloneConfigs(ProceedingJoinPoint pjp, HttpServletRequest request, String srcUser, String namespace, List<SameNamespaceCloneConfigBean> configBeansList, SameConfigPolicy policy) throws Throwable {
+        if(!AuthConstants.ROME_AUTH_PLUGIN_TYPE.equals(authConfigs.getNacosAuthSystemType())) {
+            return pjp.proceed();
+        }
+        List<String> roles = getUsernameAndRolesFromAttributes();
+
+        if(!roles.contains(AuthConstants.GLOBAL_ADMIN_ROLE)) {
+            throw new AccessException("当前用户没有此操作权限!");
+        }
+        return pjp.proceed();
     }
 
 
