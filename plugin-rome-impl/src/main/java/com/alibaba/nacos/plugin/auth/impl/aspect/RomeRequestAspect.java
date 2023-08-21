@@ -13,6 +13,7 @@ import com.alibaba.nacos.config.server.model.ConfigInfo;
 import com.alibaba.nacos.config.server.model.ConfigMetadata;
 import com.alibaba.nacos.config.server.model.SameConfigPolicy;
 import com.alibaba.nacos.config.server.model.event.ConfigDataChangeEvent;
+import com.alibaba.nacos.config.server.monitor.MetricsMonitor;
 import com.alibaba.nacos.config.server.result.code.ResultCodeEnum;
 import com.alibaba.nacos.config.server.service.ConfigChangePublisher;
 import com.alibaba.nacos.config.server.service.repository.CommonPersistService;
@@ -97,6 +98,10 @@ public class RomeRequestAspect {
             "execution(* com.alibaba.nacos.config.server.controller.ConfigController.searchConfig(..)) && args(dataId," +
                     "group,appName,tenant,configTags,pageNo,pageSize,..)";
 
+    private static final String CLIENT_INTERFACE_FUZZY_GET_CONFIG =
+            "execution(* com.alibaba.nacos.config.server.controller.ConfigController.fuzzySearchConfig(..)) && args(dataId," +
+                    "group,appName,tenant,configTags,pageNo,pageSize,..)";
+
     /**
      * Config Get config.
      */
@@ -149,6 +154,35 @@ public class RomeRequestAspect {
             return romeConfigInfoPersistService.findConfigInfo4Page(pageNo, pageSize, dataId, group, tenant, configAdvanceInfo, roles);
         } catch (Exception e) {
             String errorMsg = "serialize page error, dataId=" + dataId + ", group=" + group;
+            throw new RuntimeException(errorMsg, e);
+        }
+    }
+
+    /**
+     * Config fuzzy config.
+     */
+    @Around(CLIENT_INTERFACE_FUZZY_GET_CONFIG)
+    public Object interfaceFuzzyGetConfig(ProceedingJoinPoint pjp, String dataId, String group,String appName,String tenant, String configTags,int pageNo,int pageSize) throws Throwable {
+        if(!AuthConstants.ROME_AUTH_PLUGIN_TYPE.equals(authConfigs.getNacosAuthSystemType())) {
+            return pjp.proceed();
+        }
+
+        MetricsMonitor.getFuzzySearchMonitor().incrementAndGet();
+        Map<String, Object> configAdvanceInfo = new HashMap<>(50);
+        if (StringUtils.isNotBlank(appName)) {
+            configAdvanceInfo.put("appName", appName);
+        }
+        if (StringUtils.isNotBlank(configTags)) {
+            configAdvanceInfo.put("config_tags", configTags);
+        }
+
+        List<String> roles = getUsernameAndRolesFromAttributes();
+
+        try {
+            return romeConfigInfoPersistService.findConfigInfoLike4Page(pageNo, pageSize, dataId, group, tenant, configAdvanceInfo,roles);
+        } catch (Exception e) {
+            String errorMsg = "serialize page error, dataId=" + dataId + ", group=" + group;
+            LOGGER.error(errorMsg, e);
             throw new RuntimeException(errorMsg, e);
         }
     }

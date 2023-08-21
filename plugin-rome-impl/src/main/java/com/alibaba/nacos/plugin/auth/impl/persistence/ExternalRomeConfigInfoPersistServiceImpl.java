@@ -39,6 +39,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 
+import static com.alibaba.nacos.config.server.service.repository.RowMapperManager.CONFIG_INFO_ROW_MAPPER;
+
 
 /**
   *
@@ -59,8 +61,9 @@ public class ExternalRomeConfigInfoPersistServiceImpl implements RomeConfigInfoP
 
     private static final String APP_NAME = "appName";
 
-
     private static final String TENANT = "tenant_id";
+
+    private static final String CONTENT = "content";
 
     private DataSourceService dataSourceService;
 
@@ -186,6 +189,248 @@ public class ExternalRomeConfigInfoPersistServiceImpl implements RomeConfigInfoP
             throw e;
         }
 
+    }
+
+    @Override
+    public Page<ConfigInfo> findConfigInfoLike4Page(int pageNo, int pageSize, String dataId, String group, String tenant, Map<String, Object> configAdvanceInfo, List<String> roles) {
+        String tenantTmp = StringUtils.isBlank(tenant) ? StringUtils.EMPTY : tenant;
+        final String appName = configAdvanceInfo == null ? null : (String) configAdvanceInfo.get("appName");
+        final String content = configAdvanceInfo == null ? null : (String) configAdvanceInfo.get("content");
+        final String configTags = configAdvanceInfo == null ? null : (String) configAdvanceInfo.get("config_tags");
+        PaginationHelper<ConfigInfo> helper = persistService.createPaginationHelper();
+        String sqlCountRows = null;
+        String sqlFetchRows = null;
+        Map<String, String> paramsMap = new HashMap<>(16);
+
+        List<String> params = new ArrayList<>();
+        if(CollectionUtils.isEmpty(roles))
+            return null;
+        if(!(roles.contains(AuthConstants.GLOBAL_ADMIN_ROLE) || roles.contains(AuthConstants.GLOBAL_READONLY_ROLE))) {
+            params.addAll(roles);
+        }
+        params.add(generateLikeArgument(tenantTmp));
+        if (!StringUtils.isBlank(dataId)) {
+            params.add(generateLikeArgument(dataId));
+            paramsMap.put(DATA_ID, DATA_ID);
+        }
+        if (!StringUtils.isBlank(group)) {
+            params.add(generateLikeArgument(group));
+            paramsMap.put(GROUP, GROUP);
+        }
+        if (!StringUtils.isBlank(appName)) {
+            params.add(appName);
+            paramsMap.put(APP_NAME, APP_NAME);
+        }
+        if (!StringUtils.isBlank(content)) {
+            params.add(generateLikeArgument(content));
+            paramsMap.put(CONTENT, CONTENT);
+        }
+        final int startRow = (pageNo - 1) * pageSize;
+        if (StringUtils.isNotBlank(configTags)) {
+            String[] tagArr = configTags.split(",");
+            params.addAll(Arrays.asList(tagArr));
+            sqlCountRows = findConfigInfoLike4PageCountRowsWithTags(paramsMap, tagArr.length, roles);
+            sqlFetchRows = findConfigInfoLike4PageFetchRowsWithTags(paramsMap, tagArr.length, startRow,
+                    pageSize, roles);
+        } else {
+            sqlCountRows = findConfigInfoLike4PageCountRows(paramsMap, roles);
+            sqlFetchRows = findConfigInfoLike4PageFetchRows(paramsMap, startRow, pageSize, roles);
+        }
+        try {
+            Page<ConfigInfo> page = helper.fetchPage(sqlCountRows, sqlFetchRows, params.toArray(), pageNo, pageSize,
+                    CONFIG_INFO_ROW_MAPPER);
+
+            for (ConfigInfo configInfo : page.getPageItems()) {
+                Pair<String, String> pair = EncryptionHandler.decryptHandler(configInfo.getDataId(),
+                        configInfo.getEncryptedDataKey(), configInfo.getContent());
+                configInfo.setContent(pair.getSecond());
+            }
+            return page;
+        } catch (CannotGetJdbcConnectionException e) {
+            LogUtil.FATAL_LOG.error("[db-error] " + e, e);
+            throw e;
+        }
+    }
+
+    private String findConfigInfoLike4PageFetchRows(Map<String, String> params, int startRow, int pageSize, List<String> roles) {
+        boolean globalAdminRole = false;
+        String dataId = params.get(DATA_ID);
+        String group = params.get(GROUP);
+        final String appName = params.get(APP_NAME);
+        final String content = params.get(CONTENT);
+
+        if(roles.contains(AuthConstants.GLOBAL_ADMIN_ROLE) || roles.contains(AuthConstants.GLOBAL_READONLY_ROLE)) {
+            globalAdminRole = true;
+        }
+
+        String sqlFetchRows = "SELECT a.id,a.data_id,a.group_id,a.tenant_id,a.app_name,a.content,a.encrypted_data_key FROM config_info a";
+        if(!globalAdminRole) {
+            sqlFetchRows += " LEFT JOIN rome_role_server_permissions c on c.data_id = a.data_id ";
+        }
+        StringBuilder where = new StringBuilder(" WHERE 1 = 1");
+        if(!globalAdminRole) {
+            where.append(" AND c.role IN (");
+            for (int i = 0; i < roles.size(); i++) {
+                if (i != 0) {
+                    where.append(", ");
+                }
+                where.append('?');
+            }
+            where.append(") ");
+        }
+        where.append(" AND a.tenant_id LIKE ? ");
+        if (!StringUtils.isBlank(dataId)) {
+            where.append(" AND a.data_id LIKE ? ");
+        }
+        if (!StringUtils.isBlank(group)) {
+            where.append(" AND a.group_id LIKE ? ");
+        }
+        if (!StringUtils.isBlank(appName)) {
+            where.append(" AND a.app_name = ? ");
+        }
+        if (!StringUtils.isBlank(content)) {
+            where.append(" AND a.content LIKE ? ");
+        }
+        return sqlFetchRows + where + " LIMIT " + startRow + "," + pageSize;
+    }
+
+    private String findConfigInfoLike4PageCountRows(Map<String, String> params, List<String> roles) {
+        boolean globalAdminRole = false;
+        String dataId = params.get(DATA_ID);
+        String group = params.get(GROUP);
+        final String appName = params.get(APP_NAME);
+        final String content = params.get(CONTENT);
+        if(roles.contains(AuthConstants.GLOBAL_ADMIN_ROLE) || roles.contains(AuthConstants.GLOBAL_READONLY_ROLE)) {
+            globalAdminRole = true;
+        }
+        String sqlCountRows = "SELECT count(*) FROM config_info a";
+        if(!globalAdminRole) {
+            sqlCountRows += " LEFT JOIN rome_role_server_permissions c on c.data_id = a.data_id ";
+        }
+        StringBuilder where = new StringBuilder(" WHERE 1 = 1");
+        if(!globalAdminRole) {
+            where.append(" AND c.role IN (");
+            for (int i = 0; i < roles.size(); i++) {
+                if (i != 0) {
+                    where.append(", ");
+                }
+                where.append('?');
+            }
+            where.append(") ");
+        }
+        where.append(" AND a.tenant_id LIKE ? ");
+        if (!StringUtils.isBlank(dataId)) {
+            where.append(" AND a.data_id LIKE ? ");
+        }
+        if (!StringUtils.isBlank(group)) {
+            where.append(" AND a.group_id LIKE ? ");
+        }
+        if (!StringUtils.isBlank(appName)) {
+            where.append(" AND a.app_name = ? ");
+        }
+        if (!StringUtils.isBlank(content)) {
+            where.append(" AND a.content LIKE ? ");
+        }
+        return sqlCountRows + where;
+    }
+
+    private String findConfigInfoLike4PageFetchRowsWithTags(Map<String, String> params, int tagSize, int startRow, int pageSize, List<String> roles) {
+        boolean globalAdminRole = false;
+        final String appName = params.get("appName");
+        final String content = params.get("content");
+        final String dataId = params.get("dataId");
+        final String group = params.get("group");
+        StringBuilder where = new StringBuilder(" WHERE 1 = 1");
+        if(roles.contains(AuthConstants.GLOBAL_ADMIN_ROLE) || roles.contains(AuthConstants.GLOBAL_READONLY_ROLE)) {
+            globalAdminRole = true;
+        }
+        String sqlFetchRows = "SELECT a.id,a.data_id,a.group_id,a.tenant_id,a.app_name,a.content "
+                + "FROM config_info a LEFT JOIN config_tags_relation b ON a.id=b.id ";
+        if(!globalAdminRole) {
+            sqlFetchRows += " LEFT JOIN rome_role_server_permissions c on c.data_id = a.data_id ";
+        }
+        if(!globalAdminRole) {
+            where.append(" AND c.role IN (");
+            for (int i = 0; i < roles.size(); i++) {
+                if (i != 0) {
+                    where.append(", ");
+                }
+                where.append('?');
+            }
+            where.append(") ");
+        }
+        where.append(" AND a.tenant_id LIKE ? ");
+        if (!StringUtils.isBlank(dataId)) {
+            where.append(" AND a.data_id LIKE ? ");
+        }
+        if (!StringUtils.isBlank(group)) {
+            where.append(" AND a.group_id LIKE ? ");
+        }
+        if (!StringUtils.isBlank(appName)) {
+            where.append(" AND a.app_name = ? ");
+        }
+        if (!StringUtils.isBlank(content)) {
+            where.append(" AND a.content LIKE ? ");
+        }
+
+        where.append(" AND b.tag_name IN (");
+        for (int i = 0; i < tagSize; i++) {
+            if (i != 0) {
+                where.append(", ");
+            }
+            where.append('?');
+        }
+        where.append(") ");
+        return sqlFetchRows + where + " LIMIT " + startRow + "," + pageSize;
+    }
+
+    private String findConfigInfoLike4PageCountRowsWithTags(Map<String, String> params, int tagSize, List<String> roles) {
+        boolean globalAdminRole = false;
+        final String appName = params.get("appName");
+        final String content = params.get("content");
+        final String dataId = params.get("dataId");
+        final String group = params.get("group");
+        if(roles.contains(AuthConstants.GLOBAL_ADMIN_ROLE) || roles.contains(AuthConstants.GLOBAL_READONLY_ROLE)) {
+            globalAdminRole = true;
+        }
+        StringBuilder where = new StringBuilder(" WHERE 1 = 1");
+        String sqlCountRows = "SELECT count(*) FROM config_info  a LEFT JOIN config_tags_relation b ON a.id=b.id ";
+        if(!globalAdminRole) {
+            sqlCountRows += " LEFT JOIN rome_role_server_permissions c on c.data_id = a.data_id ";
+        }
+        if(!globalAdminRole) {
+            where.append(" AND c.role IN (");
+            for (int i = 0; i < roles.size(); i++) {
+                if (i != 0) {
+                    where.append(", ");
+                }
+                where.append('?');
+            }
+            where.append(") ");
+        }
+        where.append(" AND a.tenant_id LIKE ? ");
+        if (!StringUtils.isBlank(dataId)) {
+            where.append(" AND a.data_id LIKE ? ");
+        }
+        if (!StringUtils.isBlank(group)) {
+            where.append(" AND a.group_id LIKE ? ");
+        }
+        if (!StringUtils.isBlank(appName)) {
+            where.append(" AND a.app_name = ? ");
+        }
+        if (!StringUtils.isBlank(content)) {
+            where.append(" AND a.content LIKE ? ");
+        }
+
+        where.append(" AND b.tag_name IN (");
+        for (int i = 0; i < tagSize; i++) {
+            if (i != 0) {
+                where.append(", ");
+            }
+            where.append('?');
+        }
+        where.append(") ");
+        return sqlCountRows + where;
     }
 
     private void findConfigInfo(Map<String, String> sqlMap, Map<String, String> paramsMap, List<String> paramList, List<String> roles, String configTags, int startRow, int pageSize) {

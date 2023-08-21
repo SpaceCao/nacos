@@ -42,4 +42,18 @@ public interface RomeConfigInfoPersistService {
      */
     List<ConfigAllInfo> findAllConfigInfo4Export(String dataId, String group, String tenant, String appName, List<Long> ids, List<String> roles);
 
+    /***
+     * fuzzy query all configuration information according to group, appName, tenant (for export).
+     * @param pageNo
+     * @param pageSize
+     * @param dataId
+     * @param group
+     * @param tenant
+     * @param configAdvanceInfo
+     * @param roles
+     * @return
+     */
+    Page<ConfigInfo> findConfigInfoLike4Page(int pageNo, int pageSize, String dataId, String group, String tenant, Map<String, Object> configAdvanceInfo, List<String> roles);
+
+
 }
