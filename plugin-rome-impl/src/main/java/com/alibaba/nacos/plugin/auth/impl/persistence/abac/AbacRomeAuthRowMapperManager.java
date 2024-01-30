@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.alibaba.nacos.plugin.auth.impl.persistence;
+package com.alibaba.nacos.plugin.auth.impl.persistence.abac;
 
 import com.alibaba.nacos.config.server.service.repository.RowMapperManager;
 import org.springframework.jdbc.core.RowMapper;
@@ -29,7 +29,7 @@ import java.sql.SQLException;
   * @date: 2023/4/11 11:20 AM
   * @description: Auth plugin row mapper manager.
   **/
-public class RomeAuthRowMapperManager {
+public class AbacRomeAuthRowMapperManager {
 
     public static final RomePermissionRowMapper ROME_PERMISSION_ROW_MAPPER = new RomePermissionRowMapper();
 
@@ -41,12 +41,12 @@ public class RomeAuthRowMapperManager {
 
 
 
-    public static final class RomePermissionRowMapper implements RowMapper<RomePermissionInfo> {
+    public static final class RomePermissionRowMapper implements RowMapper<AbacRomePermissionInfo> {
 
         @Override
-        public RomePermissionInfo mapRow(ResultSet rs, int rowNum) throws SQLException {
-            RomePermissionInfo info = new RomePermissionInfo();
-            info.setRole(rs.getString("role"));
+        public AbacRomePermissionInfo mapRow(ResultSet rs, int rowNum) throws SQLException {
+            AbacRomePermissionInfo info = new AbacRomePermissionInfo();
+            info.setUsername(rs.getString("username"));
             info.setDataId(rs.getString("data_id"));
             info.setAction(rs.getString("action"));
             return info;

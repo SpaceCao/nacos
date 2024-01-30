@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
-package com.alibaba.nacos.plugin.auth.impl.persistence;
+package com.alibaba.nacos.plugin.auth.impl.persistence.abac;
+
 
 import com.alibaba.nacos.config.server.model.Page;
+
+import java.util.List;
 
 /**
   * @author: caoxingming
@@ -24,14 +27,11 @@ import com.alibaba.nacos.config.server.model.Page;
   * @description: 来伊份个性化权限持久层
   **/
 @SuppressWarnings("PMD.AbstractMethodOrInterfaceMethodMustUseJavadocRule")
-public interface RomePermissionPersistService {
+public interface AbacRomePermissionPersistService {
 
 
-    /***
-     * 根据 role 和 dataid 分页获取来伊份个性化权限信息
-     * @param role
-     * @param dataid
-     * @return
-     */
-    Page<RomePermissionInfo> findRomePermissionByRoleAndDataid(String role, String dataid, int pageNo, int pageSize);
+
+    List<AbacRomePermissionInfo> findRomePermissionByDataidAndUsername(String dataid, String username);
+
+    Page<AbacRomePermissionInfo> findRomePermissionByUsernameAndDataid(String username, String dataid, int pageNo, int pageSize);
 }

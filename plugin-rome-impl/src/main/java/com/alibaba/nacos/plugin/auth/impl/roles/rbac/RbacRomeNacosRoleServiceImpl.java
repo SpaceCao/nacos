@@ -1,4 +1,4 @@
-package com.alibaba.nacos.plugin.auth.impl.roles;
+package com.alibaba.nacos.plugin.auth.impl.roles.rbac;
 
 import com.alibaba.nacos.auth.config.AuthConfigs;
 import com.alibaba.nacos.common.utils.StringUtils;
@@ -10,8 +10,9 @@ import com.alibaba.nacos.plugin.auth.constant.ActionTypes;
 import com.alibaba.nacos.plugin.auth.constant.SignType;
 import com.alibaba.nacos.plugin.auth.impl.constant.AuthConstants;
 import com.alibaba.nacos.plugin.auth.impl.persistence.RoleInfo;
-import com.alibaba.nacos.plugin.auth.impl.persistence.RomePermissionInfo;
-import com.alibaba.nacos.plugin.auth.impl.persistence.RomePermissionPersistService;
+import com.alibaba.nacos.plugin.auth.impl.persistence.rbac.RbacRomePermissionInfo;
+import com.alibaba.nacos.plugin.auth.impl.persistence.rbac.RbacRomePermissionPersistService;
+import com.alibaba.nacos.plugin.auth.impl.roles.NacosRoleServiceImpl;
 import io.jsonwebtoken.lang.Collections;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -25,12 +26,12 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author caoxingming
- * @name RomeNacosRoleServiceImpl
+ * @name RbacRomeNacosRoleServiceImpl
  * @data 2023-03-31-3:03 PM
  * @description: 来伊份个性化权限service.
  */
 @Service
-public class RomeNacosRoleServiceImpl {
+public class RbacRomeNacosRoleServiceImpl {
 
     private static final int DEFAULT_PAGE_NO = 1;
 
@@ -41,25 +42,25 @@ public class RomeNacosRoleServiceImpl {
     private NacosRoleServiceImpl nacosRoleService;
 
     @Autowired
-    private RomePermissionPersistService romePermissionPersistService;
+    private RbacRomePermissionPersistService rbacRomePermissionPersistService;
 
-    private volatile Map<String, List<RomePermissionInfo>> romePermissionInfoMap = new ConcurrentHashMap<>();
+    private volatile Map<String, List<RbacRomePermissionInfo>> romePermissionInfoMap = new ConcurrentHashMap<>();
 
 
     @Scheduled(initialDelay = 5000, fixedDelay = 15000)
     private void reload() {
         try {
-            Page<RomePermissionInfo> romePermissionInfoPage = romePermissionPersistService
+            Page<RbacRomePermissionInfo> romePermissionInfoPage = rbacRomePermissionPersistService
                     .findRomePermissionByRoleAndDataid(StringUtils.EMPTY, StringUtils.EMPTY, DEFAULT_PAGE_NO, Integer.MAX_VALUE);
             if (romePermissionInfoPage == null) {
                 return;
             }
-            Map<String, List<RomePermissionInfo>> tmpRomePermissionInfoMap = new ConcurrentHashMap<>(16);
-            for (RomePermissionInfo romePermissionInfo : romePermissionInfoPage.getPageItems()) {
-                if (!tmpRomePermissionInfoMap.containsKey(romePermissionInfo.getRole())) {
-                    tmpRomePermissionInfoMap.put(romePermissionInfo.getRole(), new ArrayList<>());
+            Map<String, List<RbacRomePermissionInfo>> tmpRomePermissionInfoMap = new ConcurrentHashMap<>(16);
+            for (RbacRomePermissionInfo rbacRomePermissionInfo : romePermissionInfoPage.getPageItems()) {
+                if (!tmpRomePermissionInfoMap.containsKey(rbacRomePermissionInfo.getRole())) {
+                    tmpRomePermissionInfoMap.put(rbacRomePermissionInfo.getRole(), new ArrayList<>());
                 }
-                tmpRomePermissionInfoMap.get(romePermissionInfo.getRole()).add(romePermissionInfo);
+                tmpRomePermissionInfoMap.get(rbacRomePermissionInfo.getRole()).add(rbacRomePermissionInfo);
             }
 
             romePermissionInfoMap = tmpRomePermissionInfoMap;
@@ -121,12 +122,12 @@ public class RomeNacosRoleServiceImpl {
         if(StringUtils.isEmpty(resource.getName()))
             return true;
         for (RoleInfo roleInfo : roleInfoList) {
-            List<RomePermissionInfo> romePermissionInfoList = getRomePermissions(roleInfo.getRole());
-            if (Collections.isEmpty(romePermissionInfoList)) {
+            List<RbacRomePermissionInfo> rbacRomePermissionInfoList = getRomePermissions(roleInfo.getRole());
+            if (Collections.isEmpty(rbacRomePermissionInfoList)) {
                 continue;
             }
-            for (RomePermissionInfo romePermissionInfo : romePermissionInfoList) {
-                if(this.checkRomePermission(permission,romePermissionInfo))
+            for (RbacRomePermissionInfo rbacRomePermissionInfo : rbacRomePermissionInfoList) {
+                if(this.checkRomePermission(permission, rbacRomePermissionInfo))
                     return true;
             }
         }
@@ -159,12 +160,12 @@ public class RomeNacosRoleServiceImpl {
 
         for (Permission permission: permissions) {
             for (RoleInfo roleInfo : roleInfoList) {
-                List<RomePermissionInfo> romePermissionInfoList = getRomePermissions(roleInfo.getRole());
-                if (Collections.isEmpty(romePermissionInfoList)) {
+                List<RbacRomePermissionInfo> rbacRomePermissionInfoList = getRomePermissions(roleInfo.getRole());
+                if (Collections.isEmpty(rbacRomePermissionInfoList)) {
                     continue;
                 }
-                for (RomePermissionInfo romePermissionInfo : romePermissionInfoList) {
-                    if(!this.checkRomePermission(permission,romePermissionInfo))
+                for (RbacRomePermissionInfo rbacRomePermissionInfo : rbacRomePermissionInfoList) {
+                    if(!this.checkRomePermission(permission, rbacRomePermissionInfo))
                         return false;
                 }
             }
@@ -177,16 +178,16 @@ public class RomeNacosRoleServiceImpl {
     /***
      * 检查用户行为 是否 通过罗马权限校验
      * @param permission
-     * @param romePermissionInfo
+     * @param rbacRomePermissionInfo
      * @return
      */
-    private boolean checkRomePermission(Permission permission, RomePermissionInfo romePermissionInfo) {
+    private boolean checkRomePermission(Permission permission, RbacRomePermissionInfo rbacRomePermissionInfo) {
         Resource resource = permission.getResource();
         //如果是模糊匹配,默认给与权限
         if(resource.getName().startsWith("*") && resource.getName().endsWith("*")) return true;
 
-        if(!StringUtils.equals(resource.getName(),romePermissionInfo.getDataId()))  return false;
-        if(StringUtils.isNotEmpty(romePermissionInfo.getAction()) && romePermissionInfo.getAction().contains(permission.getAction())) return true;
+        if(!StringUtils.equals(resource.getName(), rbacRomePermissionInfo.getDataId()))  return false;
+        if(StringUtils.isNotEmpty(rbacRomePermissionInfo.getAction()) && rbacRomePermissionInfo.getAction().contains(permission.getAction())) return true;
         return false;
     }
 
@@ -196,19 +197,19 @@ public class RomeNacosRoleServiceImpl {
      * @param role
      * @return
      */
-    public List<RomePermissionInfo> getRomePermissions(String role) {
-        List<RomePermissionInfo> romePermissionInfoList = romePermissionInfoMap.get(role);
-        if (!authConfigs.isCachingEnabled() || romePermissionInfoList == null) {
-            Page<RomePermissionInfo> permissionInfoPage = getRomePermissionsFromDatabase( role, StringUtils.EMPTY, DEFAULT_PAGE_NO,
+    public List<RbacRomePermissionInfo> getRomePermissions(String role) {
+        List<RbacRomePermissionInfo> rbacRomePermissionInfoList = romePermissionInfoMap.get(role);
+        if (!authConfigs.isCachingEnabled() || rbacRomePermissionInfoList == null) {
+            Page<RbacRomePermissionInfo> permissionInfoPage = getRomePermissionsFromDatabase( role, StringUtils.EMPTY, DEFAULT_PAGE_NO,
                     Integer.MAX_VALUE);
-            if (romePermissionInfoList != null) {
-                romePermissionInfoList = permissionInfoPage.getPageItems();
-                if (!Collections.isEmpty(romePermissionInfoList)) {
-                    romePermissionInfoMap.put(role, romePermissionInfoList);
+            if (rbacRomePermissionInfoList != null) {
+                rbacRomePermissionInfoList = permissionInfoPage.getPageItems();
+                if (!Collections.isEmpty(rbacRomePermissionInfoList)) {
+                    romePermissionInfoMap.put(role, rbacRomePermissionInfoList);
                 }
             }
         }
-        return romePermissionInfoList;
+        return rbacRomePermissionInfoList;
     }
 
     /***
@@ -219,8 +220,8 @@ public class RomeNacosRoleServiceImpl {
      * @param pageSize
      * @return
      */
-    private Page<RomePermissionInfo> getRomePermissionsFromDatabase(String role, String dataid, int pageNo, int pageSize) {
-        Page<RomePermissionInfo> romePermissionInfoPage = romePermissionPersistService.findRomePermissionByRoleAndDataid(role, dataid, pageNo, pageSize);
+    private Page<RbacRomePermissionInfo> getRomePermissionsFromDatabase(String role, String dataid, int pageNo, int pageSize) {
+        Page<RbacRomePermissionInfo> romePermissionInfoPage = rbacRomePermissionPersistService.findRomePermissionByRoleAndDataid(role, dataid, pageNo, pageSize);
         if (romePermissionInfoPage == null) {
             return new Page<>();
         }

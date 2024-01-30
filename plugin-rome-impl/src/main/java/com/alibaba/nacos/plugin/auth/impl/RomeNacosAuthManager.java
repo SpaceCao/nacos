@@ -19,7 +19,7 @@ package com.alibaba.nacos.plugin.auth.impl;
 import com.alibaba.nacos.core.utils.Loggers;
 import com.alibaba.nacos.plugin.auth.api.Permission;
 import com.alibaba.nacos.plugin.auth.exception.AccessException;
-import com.alibaba.nacos.plugin.auth.impl.roles.RomeNacosRoleServiceImpl;
+import com.alibaba.nacos.plugin.auth.impl.roles.abac.AbacRomeNacosRoleServiceImpl;
 import com.alibaba.nacos.plugin.auth.impl.users.NacosUser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -34,7 +34,7 @@ import org.springframework.stereotype.Component;
 public class RomeNacosAuthManager {
 
     @Autowired
-    private RomeNacosRoleServiceImpl romeNacosRoleService;
+    private AbacRomeNacosRoleServiceImpl romeNacosRoleService;
 
     /***
      * 校验来伊份用户账号权限

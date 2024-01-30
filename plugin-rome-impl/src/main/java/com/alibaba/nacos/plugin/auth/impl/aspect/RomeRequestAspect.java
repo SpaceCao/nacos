@@ -28,10 +28,10 @@ import com.alibaba.nacos.plugin.auth.constant.Constants;
 import com.alibaba.nacos.plugin.auth.exception.AccessException;
 import com.alibaba.nacos.plugin.auth.impl.constant.AuthConstants;
 import com.alibaba.nacos.plugin.auth.impl.persistence.RoleInfo;
-import com.alibaba.nacos.plugin.auth.impl.persistence.RomeConfigInfoPersistService;
+import com.alibaba.nacos.plugin.auth.impl.persistence.abac.AbacRomeConfigInfoPersistService;
 import com.alibaba.nacos.plugin.auth.impl.result.code.RomeResultCodeEnum;
 import com.alibaba.nacos.plugin.auth.impl.roles.NacosRoleServiceImpl;
-import com.alibaba.nacos.plugin.auth.impl.roles.RomeNacosRoleServiceImpl;
+import com.alibaba.nacos.plugin.auth.impl.roles.abac.AbacRomeNacosRoleServiceImpl;
 import com.alibaba.nacos.plugin.encryption.handler.EncryptionHandler;
 import com.alibaba.nacos.sys.utils.InetUtils;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -73,7 +73,7 @@ public class RomeRequestAspect {
     private NacosRoleServiceImpl nacosRoleService;
 
     @Autowired
-    private RomeConfigInfoPersistService romeConfigInfoPersistService;
+    private AbacRomeConfigInfoPersistService abacRomeConfigInfoPersistService;
 
     private static final String EXPORT_CONFIG_FILE_NAME = "nacos_config_export_";
 
@@ -89,7 +89,7 @@ public class RomeRequestAspect {
 
 
     @Autowired
-    private RomeNacosRoleServiceImpl romeNacosRoleService;
+    private AbacRomeNacosRoleServiceImpl romeNacosRoleService;
 
     @Autowired
     private AuthConfigs authConfigs;
@@ -163,10 +163,11 @@ public class RomeRequestAspect {
             configAdvanceInfo.put("config_tags", configTags);
         }
 
-        List<String> roles = getUsernameAndRolesFromAttributes();
+        String username = getUsernameFromAttributes();
+        List<String> roles = getRolesFromAttributes();
 
         try {
-            return romeConfigInfoPersistService.findConfigInfo4Page(pageNo, pageSize, dataId, group, tenant, configAdvanceInfo, roles);
+            return abacRomeConfigInfoPersistService.findConfigInfo4Page(pageNo, pageSize, dataId, group, tenant, configAdvanceInfo, username,roles);
         } catch (Exception e) {
             String errorMsg = "serialize page error, dataId=" + dataId + ", group=" + group;
             throw new RuntimeException(errorMsg, e);
@@ -191,10 +192,12 @@ public class RomeRequestAspect {
             configAdvanceInfo.put("config_tags", configTags);
         }
 
-        List<String> roles = getUsernameAndRolesFromAttributes();
+        String username = getUsernameFromAttributes();
+        List<String> roles = getRolesFromAttributes();
+
 
         try {
-            return romeConfigInfoPersistService.findConfigInfoLike4Page(pageNo, pageSize, dataId, group, tenant, configAdvanceInfo,roles);
+            return abacRomeConfigInfoPersistService.findConfigInfoLike4Page(pageNo, pageSize, dataId, group, tenant, configAdvanceInfo,username, roles);
         } catch (Exception e) {
             String errorMsg = "serialize page error, dataId=" + dataId + ", group=" + group;
             LOGGER.error(errorMsg, e);
@@ -212,9 +215,10 @@ public class RomeRequestAspect {
         }
         ids.removeAll(Collections.singleton(null));
         tenant = NamespaceUtil.processNamespaceParameter(tenant);
-        List<String> roles = getUsernameAndRolesFromAttributes();
+        List<String> roles = getRolesFromAttributes();
+        String username = getUsernameFromAttributes();
 
-        List<ConfigAllInfo> dataList = romeConfigInfoPersistService.findAllConfigInfo4Export(dataId, group, tenant, appName, ids, roles);
+        List<ConfigAllInfo> dataList = abacRomeConfigInfoPersistService.findAllConfigInfo4Export(dataId, group, tenant, appName, ids, roles, username);
         List<ZipUtils.ZipItem> zipItemList = new ArrayList<>();
         StringBuilder metaData = null;
         for (ConfigInfo ci : dataList) {
@@ -259,9 +263,10 @@ public class RomeRequestAspect {
         }
         ids.removeAll(Collections.singleton(null));
         tenant = NamespaceUtil.processNamespaceParameter(tenant);
-        List<String> roles = getUsernameAndRolesFromAttributes();
+        List<String> roles = getRolesFromAttributes();
+        String username = getUsernameFromAttributes();
 
-        List<ConfigAllInfo> dataList = romeConfigInfoPersistService.findAllConfigInfo4Export(dataId, group, tenant, appName, ids, roles);
+        List<ConfigAllInfo> dataList = abacRomeConfigInfoPersistService.findAllConfigInfo4Export(dataId, group, tenant, appName, ids, roles,username);
         List<ZipUtils.ZipItem> zipItemList = new ArrayList<>();
         StringBuilder metaData = null;
         for (ConfigInfo ci : dataList) {
@@ -374,7 +379,7 @@ public class RomeRequestAspect {
         if(!AuthConstants.ROME_AUTH_PLUGIN_TYPE.equals(authConfigs.getNacosAuthSystemType())) {
             return pjp.proceed();
         }
-        List<String> roles = getUsernameAndRolesFromAttributes();
+        List<String> roles = getRolesFromAttributes();
         if(!roles.contains(AuthConstants.GLOBAL_ADMIN_ROLE)) {
             throw new AccessException("当前用户没有此操作权限!");
         }
@@ -386,7 +391,7 @@ public class RomeRequestAspect {
         if(!AuthConstants.ROME_AUTH_PLUGIN_TYPE.equals(authConfigs.getNacosAuthSystemType())) {
             return pjp.proceed();
         }
-        List<String> roles = getUsernameAndRolesFromAttributes();
+        List<String> roles = getRolesFromAttributes();
 
         if(!roles.contains(AuthConstants.GLOBAL_ADMIN_ROLE)) {
             throw new AccessException("当前用户没有此操作权限!");
@@ -399,7 +404,7 @@ public class RomeRequestAspect {
         if(!AuthConstants.ROME_AUTH_PLUGIN_TYPE.equals(authConfigs.getNacosAuthSystemType())) {
             return pjp.proceed();
         }
-        List<String> roles = getUsernameAndRolesFromAttributes();
+        List<String> roles = getRolesFromAttributes();
 
         if(!roles.contains(AuthConstants.GLOBAL_ADMIN_ROLE)) {
             throw new AccessException("当前用户没有此操作权限!");
@@ -412,7 +417,7 @@ public class RomeRequestAspect {
      * 查询鉴权后的 username 及对应的 角色列表
      * @return  username 对应 role list
      */
-    private List<String> getUsernameAndRolesFromAttributes() {
+    private List<String> getRolesFromAttributes() {
         ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         HttpServletRequest request = attributes.getRequest();
         String username = (String)request.getAttribute(Constants.Identity.IDENTITY_ID);

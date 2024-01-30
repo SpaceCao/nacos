@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.alibaba.nacos.plugin.auth.impl.persistence;
+package com.alibaba.nacos.plugin.auth.impl.persistence.abac;
 
 import com.alibaba.nacos.common.utils.CollectionUtils;
 import com.alibaba.nacos.common.utils.Pair;
@@ -51,9 +51,11 @@ import static com.alibaba.nacos.config.server.service.repository.RowMapperManage
 @SuppressWarnings(value = {"PMD.MethodReturnWrapperTypeRule", "checkstyle:linelength"})
 @Conditional(value = ConditionOnExternalStorage.class)
 @Service("externalRomeConfigInfoPersistServiceImpl")
-public class ExternalRomeConfigInfoPersistServiceImpl implements RomeConfigInfoPersistService {
+public class AbacExternalRomeConfigInfoPersistServiceImpl implements AbacRomeConfigInfoPersistService {
 
     String PATTERN_STR = "*";
+
+    private static final String USERNAME = "username";
 
     private static final String DATA_ID = "dataId";
 
@@ -75,14 +77,14 @@ public class ExternalRomeConfigInfoPersistServiceImpl implements RomeConfigInfoP
     public static final RowMapperManager.ConfigAllInfoRowMapper CONFIG_ALL_INFO_ROW_MAPPER = new RowMapperManager.ConfigAllInfoRowMapper();
 
 
-    public ExternalRomeConfigInfoPersistServiceImpl() {
+    public AbacExternalRomeConfigInfoPersistServiceImpl() {
         this.dataSourceService = DynamicDataSource.getInstance().getDataSource();
         this.jt = dataSourceService.getJdbcTemplate();
     }
 
 
     @Override
-    public Page<ConfigInfo> findConfigInfo4Page(int pageNo, int pageSize, String dataId, String group, String tenant, Map<String, Object> configAdvanceInfo, List<String> roles) {
+    public Page<ConfigInfo> findConfigInfo4Page(int pageNo, int pageSize, String dataId, String group, String tenant, Map<String, Object> configAdvanceInfo, String username,  List<String> roles) {
         String tenantTmp = StringUtils.isBlank(tenant) ? StringUtils.EMPTY : tenant;
         PaginationHelper<ConfigInfo> helper = persistService.createPaginationHelper();
 
@@ -92,7 +94,7 @@ public class ExternalRomeConfigInfoPersistServiceImpl implements RomeConfigInfoP
 
         List<String> paramList = new ArrayList<>();
         Map<String, String> paramsMap = new HashMap<>(16);
-        if(CollectionUtils.isEmpty(roles))
+        if(StringUtils.isEmpty(username))
             return null;
         paramsMap.put(TENANT, tenantTmp);
         if (StringUtils.isNotBlank(dataId)) {
@@ -105,14 +107,14 @@ public class ExternalRomeConfigInfoPersistServiceImpl implements RomeConfigInfoP
             paramsMap.put(APP_NAME, appName);
         }
         final int startRow = (pageNo - 1) * pageSize;
-        this.findConfigInfo(sqlMap, paramsMap, paramList, roles, configTags, startRow, pageSize);
+        this.findConfigInfo(sqlMap, paramsMap, paramList, roles, username, configTags, startRow, pageSize);
 
         String sql = sqlMap.get(PageSqlType.QUERY_COUNT.toString());
         String sqlCount = sqlMap.get(PageSqlType.QUERY_FETCH.toString());
 
         try {
             Page<ConfigInfo> page = helper.fetchPage(sql, sqlCount, paramList.toArray(), pageNo, pageSize,
-                    RomeConfigRowMapperManager.ROME_CONFIG_INFO_ROW_MAPPER_ROW_MAPPER);
+                    AbacRomeConfigRowMapperManager.ROME_CONFIG_INFO_ROW_MAPPER_ROW_MAPPER);
             for (ConfigInfo configInfo : page.getPageItems()) {
                 Pair<String, String> pair = EncryptionHandler.decryptHandler(configInfo.getDataId(),
                         configInfo.getEncryptedDataKey(), configInfo.getContent());
@@ -126,7 +128,7 @@ public class ExternalRomeConfigInfoPersistServiceImpl implements RomeConfigInfoP
     }
 
     @Override
-    public List<ConfigAllInfo> findAllConfigInfo4Export(String dataId, String group, String tenant, String appName, List<Long> ids, List<String> roles) {
+    public List<ConfigAllInfo> findAllConfigInfo4Export(String dataId, String group, String tenant, String appName, List<Long> ids, List<String> roles, String username) {
         boolean globalAdminRole = false;
         String tenantTmp = StringUtils.isBlank(tenant) ? StringUtils.EMPTY : tenant;
         Map<String, String> params = new HashMap<>(16);
@@ -135,22 +137,15 @@ public class ExternalRomeConfigInfoPersistServiceImpl implements RomeConfigInfoP
             globalAdminRole = true;
         }
 
-        String sql = "SELECT a.id,a.data_id,a.group_id,a.tenant_id,a.app_name,a.content,a.type,a.md5,a.gmt_create,a.gmt_modified,a.src_user,a.src_ip,"
+        String sql = "SELECT distinct a.id,a.data_id,a.group_id,a.tenant_id,a.app_name,a.content,a.type,a.md5,a.gmt_create,a.gmt_modified,a.src_user,a.src_ip,"
                 + "a.c_desc,a.c_use,a.effect,a.c_schema,a.encrypted_data_key FROM config_info a ";
         if(!globalAdminRole) {
-            sql += " LEFT JOIN rome_role_server_permissions c on c.data_id = a.data_id ";
+            sql += " LEFT JOIN rome_server_permissions c on c.data_id = a.data_id ";
         }
         StringBuilder where = new StringBuilder(" WHERE 1= 1 ");
         if(!globalAdminRole) {
-            where.append(" AND c.role IN (");
-            for (int i = 0; i < roles.size(); i++) {
-                if (i != 0) {
-                    where.append(", ");
-                }
-                where.append('?');
-            }
-            where.append(") ");
-            paramList.addAll(roles);
+            where.append(" AND c.username = ? ");
+            paramList.add(username);
         }
         if (!CollectionUtils.isEmpty(ids)) {
             paramList.addAll(ids);
@@ -192,7 +187,7 @@ public class ExternalRomeConfigInfoPersistServiceImpl implements RomeConfigInfoP
     }
 
     @Override
-    public Page<ConfigInfo> findConfigInfoLike4Page(int pageNo, int pageSize, String dataId, String group, String tenant, Map<String, Object> configAdvanceInfo, List<String> roles) {
+    public Page<ConfigInfo> findConfigInfoLike4Page(int pageNo, int pageSize, String dataId, String group, String tenant, Map<String, Object> configAdvanceInfo, String username, List<String> roles) {
         String tenantTmp = StringUtils.isBlank(tenant) ? StringUtils.EMPTY : tenant;
         final String appName = configAdvanceInfo == null ? null : (String) configAdvanceInfo.get("appName");
         final String content = configAdvanceInfo == null ? null : (String) configAdvanceInfo.get("content");
@@ -203,10 +198,10 @@ public class ExternalRomeConfigInfoPersistServiceImpl implements RomeConfigInfoP
         Map<String, String> paramsMap = new HashMap<>(16);
 
         List<String> params = new ArrayList<>();
-        if(CollectionUtils.isEmpty(roles))
+        if(StringUtils.isEmpty(username))
             return null;
         if(!(roles.contains(AuthConstants.GLOBAL_ADMIN_ROLE) || roles.contains(AuthConstants.GLOBAL_READONLY_ROLE))) {
-            params.addAll(roles);
+            params.add(generateLikeArgument(username));
         }
         params.add(generateLikeArgument(tenantTmp));
         if (!StringUtils.isBlank(dataId)) {
@@ -263,20 +258,13 @@ public class ExternalRomeConfigInfoPersistServiceImpl implements RomeConfigInfoP
             globalAdminRole = true;
         }
 
-        String sqlFetchRows = "SELECT a.id,a.data_id,a.group_id,a.tenant_id,a.app_name,a.content,a.encrypted_data_key FROM config_info a";
+        String sqlFetchRows = "SELECT distinct a.id,a.data_id,a.group_id,a.tenant_id,a.app_name,a.content,a.encrypted_data_key FROM config_info a";
         if(!globalAdminRole) {
-            sqlFetchRows += " LEFT JOIN rome_role_server_permissions c on c.data_id = a.data_id ";
+            sqlFetchRows += " LEFT JOIN rome_server_permissions c on c.data_id = a.data_id ";
         }
         StringBuilder where = new StringBuilder(" WHERE 1 = 1");
         if(!globalAdminRole) {
-            where.append(" AND c.role IN (");
-            for (int i = 0; i < roles.size(); i++) {
-                if (i != 0) {
-                    where.append(", ");
-                }
-                where.append('?');
-            }
-            where.append(") ");
+            where.append(" AND c.username = ? ");
         }
         where.append(" AND a.tenant_id LIKE ? ");
         if (!StringUtils.isBlank(dataId)) {
@@ -303,20 +291,13 @@ public class ExternalRomeConfigInfoPersistServiceImpl implements RomeConfigInfoP
         if(roles.contains(AuthConstants.GLOBAL_ADMIN_ROLE) || roles.contains(AuthConstants.GLOBAL_READONLY_ROLE)) {
             globalAdminRole = true;
         }
-        String sqlCountRows = "SELECT count(*) FROM config_info a";
+        String sqlCountRows = "SELECT count(distinct a.id) FROM config_info a";
         if(!globalAdminRole) {
-            sqlCountRows += " LEFT JOIN rome_role_server_permissions c on c.data_id = a.data_id ";
+            sqlCountRows += " LEFT JOIN rome_server_permissions c on c.data_id = a.data_id ";
         }
         StringBuilder where = new StringBuilder(" WHERE 1 = 1");
         if(!globalAdminRole) {
-            where.append(" AND c.role IN (");
-            for (int i = 0; i < roles.size(); i++) {
-                if (i != 0) {
-                    where.append(", ");
-                }
-                where.append('?');
-            }
-            where.append(") ");
+            where.append(" AND c.username = ? ");
         }
         where.append(" AND a.tenant_id LIKE ? ");
         if (!StringUtils.isBlank(dataId)) {
@@ -344,20 +325,13 @@ public class ExternalRomeConfigInfoPersistServiceImpl implements RomeConfigInfoP
         if(roles.contains(AuthConstants.GLOBAL_ADMIN_ROLE) || roles.contains(AuthConstants.GLOBAL_READONLY_ROLE)) {
             globalAdminRole = true;
         }
-        String sqlFetchRows = "SELECT a.id,a.data_id,a.group_id,a.tenant_id,a.app_name,a.content "
+        String sqlFetchRows = "SELECT distinct a.id,a.data_id,a.group_id,a.tenant_id,a.app_name,a.content "
                 + "FROM config_info a LEFT JOIN config_tags_relation b ON a.id=b.id ";
         if(!globalAdminRole) {
-            sqlFetchRows += " LEFT JOIN rome_role_server_permissions c on c.data_id = a.data_id ";
+            sqlFetchRows += " LEFT JOIN rome_server_permissions c on c.data_id = a.data_id ";
         }
         if(!globalAdminRole) {
-            where.append(" AND c.role IN (");
-            for (int i = 0; i < roles.size(); i++) {
-                if (i != 0) {
-                    where.append(", ");
-                }
-                where.append('?');
-            }
-            where.append(") ");
+            where.append(" AND c.username = ?");
         }
         where.append(" AND a.tenant_id LIKE ? ");
         if (!StringUtils.isBlank(dataId)) {
@@ -390,23 +364,17 @@ public class ExternalRomeConfigInfoPersistServiceImpl implements RomeConfigInfoP
         final String content = params.get("content");
         final String dataId = params.get("dataId");
         final String group = params.get("group");
+
         if(roles.contains(AuthConstants.GLOBAL_ADMIN_ROLE) || roles.contains(AuthConstants.GLOBAL_READONLY_ROLE)) {
             globalAdminRole = true;
         }
         StringBuilder where = new StringBuilder(" WHERE 1 = 1");
-        String sqlCountRows = "SELECT count(*) FROM config_info  a LEFT JOIN config_tags_relation b ON a.id=b.id ";
+        String sqlCountRows = "SELECT count(distinct a.id) FROM config_info  a LEFT JOIN config_tags_relation b ON a.id=b.id ";
         if(!globalAdminRole) {
-            sqlCountRows += " LEFT JOIN rome_role_server_permissions c on c.data_id = a.data_id ";
+            sqlCountRows += " LEFT JOIN rome_server_permissions c on c.data_id = a.data_id ";
         }
         if(!globalAdminRole) {
-            where.append(" AND c.role IN (");
-            for (int i = 0; i < roles.size(); i++) {
-                if (i != 0) {
-                    where.append(", ");
-                }
-                where.append('?');
-            }
-            where.append(") ");
+            where.append(" AND c.username = ?");
         }
         where.append(" AND a.tenant_id LIKE ? ");
         if (!StringUtils.isBlank(dataId)) {
@@ -433,7 +401,7 @@ public class ExternalRomeConfigInfoPersistServiceImpl implements RomeConfigInfoP
         return sqlCountRows + where;
     }
 
-    private void findConfigInfo(Map<String, String> sqlMap, Map<String, String> paramsMap, List<String> paramList, List<String> roles, String configTags, int startRow, int pageSize) {
+    private void findConfigInfo(Map<String, String> sqlMap, Map<String, String> paramsMap, List<String> paramList,List<String> roles , String username, String configTags, int startRow, int pageSize) {
         boolean configTagsSwitch = false;
         boolean globalAdminRole = false;
         List<String> tags = new ArrayList<>(16);
@@ -451,29 +419,22 @@ public class ExternalRomeConfigInfoPersistServiceImpl implements RomeConfigInfoP
         final String dataId = paramsMap.get(DATA_ID);
         final String group = paramsMap.get(GROUP);
         final String tenant = paramsMap.get(TENANT);
-        String sqlCount = "SELECT count(1) FROM config_info  a";
-        String sql = "SELECT a.id,a.data_id,a.group_id,a.tenant_id,a.app_name,a.content,type,a.encrypted_data_key FROM config_info a";
+        String sqlCount = "SELECT count(distinct a.id) FROM config_info  a";
+        String sql = "SELECT distinct a.id,a.data_id,a.group_id,a.tenant_id,a.app_name,a.content,type,a.encrypted_data_key FROM config_info a";
         if(configTagsSwitch) {
             sqlCount += " LEFT JOIN config_tags_relation b ON a.id=b.id ";
             sql += " LEFT JOIN config_tags_relation b ON a.id=b.id ";
         }
         if(!globalAdminRole) {
-            sqlCount += " LEFT JOIN rome_role_server_permissions c on c.data_id = a.data_id ";
-            sql += " LEFT JOIN rome_role_server_permissions c on c.data_id = a.data_id ";
+            sqlCount += " LEFT JOIN rome_server_permissions c on c.data_id = a.data_id ";
+            sql += " LEFT JOIN rome_server_permissions c on c.data_id = a.data_id ";
         }
         StringBuilder where = new StringBuilder(" WHERE ");
         where.append(" a.tenant_id=? ");
         paramList.add(tenant);
         if(!globalAdminRole) {
-            where.append(" AND c.role IN (");
-            for (int i = 0; i < roles.size(); i++) {
-                if (i != 0) {
-                    where.append(", ");
-                }
-                where.append('?');
-            }
-            where.append(") ");
-            paramList.addAll(roles);
+            where.append(" AND c.username =? ");
+            paramList.add(username);
         }
         if (StringUtils.isNotBlank(dataId)) {
             where.append(" AND a.data_id=? ");

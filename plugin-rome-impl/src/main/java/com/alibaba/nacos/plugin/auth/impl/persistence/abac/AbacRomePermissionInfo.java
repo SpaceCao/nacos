@@ -1,23 +1,21 @@
-package com.alibaba.nacos.plugin.auth.impl.persistence;
+package com.alibaba.nacos.plugin.auth.impl.persistence.abac;
 
 import java.io.Serializable;
 
 /**
  * @author caoxingming
- * @name RomePermissionInfo
+ * @name AbacRomePermissionInfo
  * @data 2023-03-31-4:17 PM
- * @description: 来伊份权限实体
+ * @description: 罗马abac权限Info类
  */
-public class RomePermissionInfo implements Serializable {
+public class AbacRomePermissionInfo implements Serializable {
 
     private static final long serialVersionUID = 388813673388837395L;
 
-
     /***
-     * role
+     * 用户名
      */
-    private String role;
-
+    private String username;
 
     /***
      * 配置 dataid
@@ -30,12 +28,12 @@ public class RomePermissionInfo implements Serializable {
      */
     private String action;
 
-    public String getRole() {
-        return role;
+    public String getUsername() {
+        return username;
     }
 
-    public void setRole(String role) {
-        this.role = role;
+    public void setUsername(String username) {
+        this.username = username;
     }
 
     public String getDataId() {

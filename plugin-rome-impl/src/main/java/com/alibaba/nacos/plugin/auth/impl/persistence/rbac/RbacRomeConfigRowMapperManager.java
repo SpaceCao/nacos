@@ -1,4 +1,4 @@
-package com.alibaba.nacos.plugin.auth.impl.persistence;
+package com.alibaba.nacos.plugin.auth.impl.persistence.rbac;
 
 import com.alibaba.nacos.config.server.model.ConfigInfo;
 import com.alibaba.nacos.config.server.service.repository.RowMapperManager;
@@ -10,11 +10,11 @@ import java.sql.SQLException;
 /**
  * rome config plugin row mapper manager.
  * @author caoxingming
- * @name RomeConfigRowMapperManager
+ * @name AbacRomeConfigRowMapperManager
  * @date 2023-04-06-5:41 PM
  * @description: 来伊份个性化配置 row mapper manager.
  */
-public class RomeConfigRowMapperManager {
+public class RbacRomeConfigRowMapperManager {
 
     public static final RomeConfigInfoRowMapper ROME_CONFIG_INFO_ROW_MAPPER_ROW_MAPPER = new RomeConfigInfoRowMapper();
 

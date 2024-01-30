@@ -1,4 +1,4 @@
-package com.alibaba.nacos.plugin.auth.impl.persistence;
+package com.alibaba.nacos.plugin.auth.impl.persistence.rbac;
 
 import com.alibaba.nacos.config.server.model.ConfigAllInfo;
 import com.alibaba.nacos.config.server.model.ConfigInfo;
@@ -13,7 +13,7 @@ import java.util.Map;
   * @date: 2023/4/6 3:26 PM
   * @description: 来伊份个性化配置中心持久层 Interface.用于权限控制
   **/
-public interface RomeConfigInfoPersistService {
+public interface RbacRomeConfigInfoPersistService {
 
 
     /**

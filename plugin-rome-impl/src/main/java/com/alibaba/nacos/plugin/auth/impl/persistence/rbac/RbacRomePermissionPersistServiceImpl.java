@@ -1,4 +1,4 @@
-package com.alibaba.nacos.plugin.auth.impl.persistence;
+package com.alibaba.nacos.plugin.auth.impl.persistence.rbac;
 
 import com.alibaba.nacos.common.utils.StringUtils;
 import com.alibaba.nacos.config.server.configuration.ConditionOnExternalStorage;
@@ -14,21 +14,21 @@ import java.util.List;
 
 /**
  * @author caoxingming
- * @name RomePermissionPersistServiceImpl
+ * @name AbacRomePermissionPersistServiceImpl
  * @data 2023-04-03-6:51 PM
  * @description: 来伊份个性化权限持久层 impl.
  */
 @Conditional(value = ConditionOnExternalStorage.class)
 @Component
-public class RomePermissionPersistServiceImpl implements RomePermissionPersistService {
+public class RbacRomePermissionPersistServiceImpl implements RbacRomePermissionPersistService {
 
     @Autowired
     private ExternalStoragePersistServiceImpl persistService;
 
     @Override
-    public Page<RomePermissionInfo> findRomePermissionByRoleAndDataid(String role, String dataid, int pageNo, int pageSize) {
+    public Page<RbacRomePermissionInfo> findRomePermissionByRoleAndDataid(String role, String dataid, int pageNo, int pageSize) {
 
-        PaginationHelper<RomePermissionInfo> helper = persistService.createPaginationHelper();
+        PaginationHelper<RbacRomePermissionInfo> helper = persistService.createPaginationHelper();
 
         String sqlCountRows = "SELECT count(1) FROM rome_role_server_permissions ";
 
@@ -46,6 +46,6 @@ public class RomePermissionPersistServiceImpl implements RomePermissionPersistSe
         }
 
         return helper.fetchPage(sqlCountRows + where, sqlFetchRows + where, params.toArray(), pageNo, pageSize,
-                RomeAuthRowMapperManager.ROME_PERMISSION_ROW_MAPPER);
+                RbacRomeAuthRowMapperManager.ROME_PERMISSION_ROW_MAPPER);
     }
 }
