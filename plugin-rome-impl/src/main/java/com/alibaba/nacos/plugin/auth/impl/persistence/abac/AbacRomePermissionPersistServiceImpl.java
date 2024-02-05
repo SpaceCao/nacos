@@ -2,10 +2,8 @@ package com.alibaba.nacos.plugin.auth.impl.persistence.abac;
 
 import com.alibaba.nacos.common.utils.StringUtils;
 import com.alibaba.nacos.config.server.configuration.ConditionOnExternalStorage;
-import com.alibaba.nacos.config.server.model.Page;
 import com.alibaba.nacos.config.server.service.datasource.DataSourceService;
 import com.alibaba.nacos.config.server.service.datasource.DynamicDataSource;
-import com.alibaba.nacos.config.server.service.repository.PaginationHelper;
 import com.alibaba.nacos.config.server.service.repository.extrnal.ExternalStoragePersistServiceImpl;
 import com.alibaba.nacos.config.server.utils.LogUtil;
 import com.alibaba.nacos.plugin.auth.impl.persistence.AuthRowMapperManager;
@@ -45,7 +43,7 @@ public class AbacRomePermissionPersistServiceImpl implements AbacRomePermissionP
     @Override
     public List<AbacRomePermissionInfo> findRomePermissionByDataidAndUsername(String dataid, String username) {
 
-        String sqlFetchRows = "SELECT role, data_id, action FROM rome_server_permissions ";
+        String sqlFetchRows = "SELECT username, data_id, action FROM rome_server_permissions ";
 
         StringBuilder where = new StringBuilder(" WHERE 1 = 1 ");
         List<String> params = new ArrayList<>();
@@ -69,26 +67,25 @@ public class AbacRomePermissionPersistServiceImpl implements AbacRomePermissionP
     }
 
     @Override
-    public Page<AbacRomePermissionInfo> findRomePermissionByUsernameAndDataid(String username, String dataid, int pageNo, int pageSize) {
+    public List<AbacRomePermissionInfo> findRomePermissionPageLimit(int pageNo, int pageSize) {
 
-        PaginationHelper<AbacRomePermissionInfo> helper = persistService.createPaginationHelper();
-
-        String sqlCountRows = "SELECT count(1) FROM rome_server_permissions ";
-
-        String sqlFetchRows = "SELECT role, data_id, action FROM rome_server_permissions ";
+        String sqlFetchRows = "SELECT username, data_id, action FROM rome_server_permissions ";
 
         StringBuilder where = new StringBuilder(" WHERE 1 = 1 ");
-        List<String> params = new ArrayList<>();
-        if (StringUtils.isNotBlank(username)) {
-            where.append(" AND username = ? ");
-            params.add(username);
-        }
-        if (StringUtils.isNotBlank(dataid)) {
-            where.append(" AND data_id = ? ");
-            params.add(dataid);
+        List<Object> params = new ArrayList<>();
+        if (pageNo >= 0 && pageSize >= 0) {
+            where.append(" limit ? , ?");
+            params.add(pageNo);
+            params.add(pageSize);
         }
 
-        return helper.fetchPage(sqlCountRows + where, sqlFetchRows + where, params.toArray(), pageNo, pageSize,
-                AbacRomeAuthRowMapperManager.ROME_PERMISSION_ROW_MAPPER);
+        try {
+            return this.jt.query(sqlFetchRows + where.toString(), params.toArray(), ROME_PERMISSION_ROW_MAPPER);
+        } catch (CannotGetJdbcConnectionException e) {
+            LogUtil.FATAL_LOG.error("[db-error] ", e);
+            throw e;
+        } catch (Exception e) {
+            throw e;
+        }
     }
 }

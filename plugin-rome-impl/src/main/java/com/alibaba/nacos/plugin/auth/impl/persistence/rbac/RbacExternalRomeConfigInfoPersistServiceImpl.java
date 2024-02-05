@@ -50,7 +50,7 @@ import static com.alibaba.nacos.config.server.service.repository.RowMapperManage
   **/
 @SuppressWarnings(value = {"PMD.MethodReturnWrapperTypeRule", "checkstyle:linelength"})
 @Conditional(value = ConditionOnExternalStorage.class)
-@Service("externalRomeConfigInfoPersistServiceImpl")
+@Service("rbacExternalRomeConfigInfoPersistServiceImpl")
 public class RbacExternalRomeConfigInfoPersistServiceImpl implements RbacRomeConfigInfoPersistService {
 
     String PATTERN_STR = "*";

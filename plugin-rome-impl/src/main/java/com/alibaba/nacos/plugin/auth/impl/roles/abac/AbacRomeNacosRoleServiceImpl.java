@@ -1,8 +1,8 @@
 package com.alibaba.nacos.plugin.auth.impl.roles.abac;
 
 import com.alibaba.nacos.auth.config.AuthConfigs;
+import com.alibaba.nacos.common.utils.CollectionUtils;
 import com.alibaba.nacos.common.utils.StringUtils;
-import com.alibaba.nacos.config.server.model.Page;
 import com.alibaba.nacos.core.utils.Loggers;
 import com.alibaba.nacos.plugin.auth.api.Permission;
 import com.alibaba.nacos.plugin.auth.api.Resource;
@@ -21,7 +21,6 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 
@@ -34,9 +33,9 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class AbacRomeNacosRoleServiceImpl {
 
-    private static final int DEFAULT_PAGE_NO = 0;
+    private static final int DEFAULT_ROW_NUM = 0;
 
-    private static final int DEFAULT_PAGE_SIZE = 0;
+    private static final int DEFAULT_ROW_SIZE = 100;
 
 
     @Autowired
@@ -55,20 +54,19 @@ public class AbacRomeNacosRoleServiceImpl {
     private void reload() {
         try {
             Map<String, List<AbacRomePermissionInfo>> tmpRomePermissionInfoMap = new ConcurrentHashMap<>(16);
-
+            int rowNum = DEFAULT_ROW_NUM;
             while (true) {
-                int pageNo = DEFAULT_PAGE_NO;
-                Page<AbacRomePermissionInfo> romePermissionInfoPage = abacRomePermissionPersistService
-                        .findRomePermissionByUsernameAndDataid(StringUtils.EMPTY, StringUtils.EMPTY, pageNo, DEFAULT_PAGE_SIZE);
-                if (Objects.isNull(romePermissionInfoPage) || romePermissionInfoPage.getTotalCount() == 0)
+                List<AbacRomePermissionInfo> romePermissionInfoPage = abacRomePermissionPersistService
+                        .findRomePermissionPageLimit(rowNum, DEFAULT_ROW_SIZE);
+                if (CollectionUtils.isEmpty(romePermissionInfoPage))
                     break;
-                for (AbacRomePermissionInfo abacRomePermissionInfo : romePermissionInfoPage.getPageItems()) {
+                for (AbacRomePermissionInfo abacRomePermissionInfo : romePermissionInfoPage) {
                     if (!tmpRomePermissionInfoMap.containsKey(abacRomePermissionInfo.getUsername())) {
                         tmpRomePermissionInfoMap.put(abacRomePermissionInfo.getUsername(), new ArrayList<>());
                     }
                     tmpRomePermissionInfoMap.get(abacRomePermissionInfo.getUsername()).add(abacRomePermissionInfo);
                 }
-                pageNo++;
+                rowNum+=DEFAULT_ROW_SIZE;
             }
             romePermissionInfoMap = tmpRomePermissionInfoMap;
         } catch (Exception e) {
@@ -130,6 +128,8 @@ public class AbacRomeNacosRoleServiceImpl {
             return true;
 
         //校验用户权限
+        if (resource.getName().startsWith("*") && resource.getName().endsWith("*")) return true;
+
         List<AbacRomePermissionInfo> abacRomePermissionInfoList = getRomePermissions(permission, username);
         if (!Collections.isEmpty(abacRomePermissionInfoList)) {
             for (AbacRomePermissionInfo abacRomePermissionInfo : abacRomePermissionInfoList) {
@@ -207,12 +207,7 @@ public class AbacRomeNacosRoleServiceImpl {
         String dataid = permission.getResource().getName();
         List<AbacRomePermissionInfo> abacRomePermissionInfoList = romePermissionInfoMap.get(username);
         if (!authConfigs.isCachingEnabled() || abacRomePermissionInfoList == null) {
-            List<AbacRomePermissionInfo> abacRomePermissionInfos = getRomePermissionsByDataIdAndUsernameFromDatabase(dataid, username);
-            if (abacRomePermissionInfos != null) {
-                if (!Collections.isEmpty(abacRomePermissionInfos)) {
-                    romePermissionInfoMap.put(username, abacRomePermissionInfos);
-                }
-            }
+            return getRomePermissionsByDataIdAndUsernameFromDatabase(dataid, username);
         }
         return abacRomePermissionInfoList;
     }

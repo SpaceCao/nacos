@@ -17,8 +17,6 @@
 package com.alibaba.nacos.plugin.auth.impl.persistence.abac;
 
 
-import com.alibaba.nacos.config.server.model.Page;
-
 import java.util.List;
 
 /**
@@ -33,5 +31,5 @@ public interface AbacRomePermissionPersistService {
 
     List<AbacRomePermissionInfo> findRomePermissionByDataidAndUsername(String dataid, String username);
 
-    Page<AbacRomePermissionInfo> findRomePermissionByUsernameAndDataid(String username, String dataid, int pageNo, int pageSize);
+    List<AbacRomePermissionInfo> findRomePermissionPageLimit(int pageNo, int pageSize);
 }
